@@ -41,13 +41,46 @@ PGM 由并列项目 `~/c-doing/global-mem`（Kimi 实现）交付；本仓库（
    （healthz / search / context:build / context:validate / evidence / events:batch /
    proposals）。客户端对 schema_version 强校验，状态码 200 不视为兼容（§3.3）。
 
-## Harness 安装记录（待补）
+## Harness 安装记录（§4.1）
 
-按设计 §4.1：安装前 `npm view @deepseek-ai/dsh dist-tags/versions/time --json`
-重新查询，显式选精确版本再 `npm install --save-exact`。
-本 ADR 安装段需记录：查询时间与 registry、dist-tags 快照、所选版本、
-发布时间、稳定/RC 轨道、Node/npm 版本、包完整性、gitHead、profile 备份标识。
-**当前状态：dsh 尚未安装，此段留空待装机时补录。**
+> 安装前按设计 §4.1 重新 `npm view` 查询 dist-tags/versions/time，显式选精确版本后
+> `npm install --save-exact`，**未假定 latest = 稳定版**。
+
+| 项 | 值 |
+|---|---|
+| 查询时间 | 2026-09-25 ~10:50 (GMT+8) |
+| registry | `https://registry.npmjs.org/` |
+| dist-tags 快照 | `latest=0.1.5-rc.3` / `next=0.1.7-rc.2` / `alpha=0.1.7-alpha.2` |
+| 候选版本发布时间 | 0.1.5-rc.3 = 2026-09-22T05:55:20.869Z；0.1.7-rc.2 = 2026-09-24T14:18:11.337Z；0.1.7-alpha.2 = 2026-09-22T16:08:55.647Z |
+| **所选版本** | **`0.1.5-rc.3`** |
+| 稳定/RC 轨道 | **RC**（npm `latest` 标签；registry 当前无 stable 发布存在） |
+| 选择原因 | 设计 v0.4 当时核对并判定"文档可以开工"的基线版本 + npm `latest` 标签，POC 复现性最稳；0.1.7 系列若有不兼容改动可后续升级并在本表追加 |
+| Node / npm | Node 22.22.2（managed runtime）；npm 为 Node 自带（安装时未单独记录 `--version`） |
+| 包完整性 | `dist.integrity = sha512-c0W6Xqc4ChjFcCJkbzPeIxZQdnbKqe+QAcJzWGtogg0ZzsnZRcw3vopMyZ5oZU6E2fmyqGcyDR1sBeiCH4yHcg==` |
+| 上游 commit SHA | **无 gitHead**（npm view 未返回该字段）；按 §4.1 要求未以当前 master SHA 替代 |
+| 安装方式 | `cd ~/c-doing/c-agent/runtime && npm init -y && npm install --save-exact @deepseek-ai/dsh@0.1.5-rc.3` |
+| 安装结果 | `added 522 packages, audited 523, 0 vulnerabilities`（2026-09-25，非沙箱环境，沙箱内代理对 registry 握手挂起） |
+| 锁文件 | `~/c-doing/c-agent/runtime/package-lock.json`（`npm ci` 可复现；复现前须停掉运行中的 dsh） |
+| DSH_HOME | `$HOME/c-doing/c-agent/state/dsh`（profiles 待首次 `dsh web` 启动生成） |
+| 适配器版本 | coagent `main @ d1f98e1` |
+| PGM 契约 | `pgm.context.v1` / `pgm.event.v1`（`~/c-doing/global-mem`，Kimi 实现中） |
+| fixtures 结果 | 单测 19/19 通过；integration 跳过（PGM 未就绪） |
+
+**启动校验状态（待补）**：`dsh --help` 与 `dsh web` 因本回合 Bash 执行环境故障
+（所有命令含 `echo` 均返回 SIGTERM 137）未能执行；二进制应已落位
+`~/c-doing/c-agent/runtime/node_modules/.bin/dsh`。恢复后按下面命令完成 §4.1 末段：
+
+```bash
+export DSH_HOME="$HOME/c-doing/c-agent/state/dsh"
+cd "$HOME/c-doing/c-agent/workspace"
+git rev-parse --show-toplevel   # 应输出 workspace 绝对路径
+"$HOME/c-doing/c-agent/runtime/node_modules/.bin/dsh" --help
+"$HOME/c-doing/c-agent/runtime/node_modules/.bin/dsh" web
+# Web URL/端口以锁定版启动输出为准，写入环境记录；仅回环访问
+```
+
+**升级约束（§4.1）**：包/锁文件、profiles、插件、state 作为兼容性单元整体备份后联调；
+不同版本不得同时写同一 DSH_HOME；回退须恢复对应格式 profile/state，不只降 npm 包。
 
 ## 验收证据
 
