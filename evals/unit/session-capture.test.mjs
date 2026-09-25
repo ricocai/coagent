@@ -119,7 +119,9 @@ test("敏感信息脱敏后才出网", () => {
   const cases = [
     ["我的 api_key = abcdefgh12345678", /\[REDACTED\]/],
     ["Authorization: Bearer eyJhbGciOiJIUzI1NiJ9abcdef", /Bearer \[REDACTED\]/],
-    ["令牌是 ***REMOVED***", /\[REDACTED_PGM_TOKEN\]/],
+    // 注意：这里必须用合成令牌，绝不可使用真实签发凭证
+    // （曾误将真实令牌写入测试并推入公开仓库，须靠轮换 + 历史清理处置）。
+    ["令牌是 pgm-EXAMPLEFAKE0123456789abcdefghijXY", /\[REDACTED_PGM_TOKEN\]/],
     ["sk-A1b2C3d4E5f6G7h8I9j0K1l2M3n4", /\[REDACTED_KEY\]/],
     ["ghp_abcdefghijklmnopqrstuvwxyz123456", /\[REDACTED_GITHUB_TOKEN\]/],
     ["-----BEGIN RSA PRIVATE KEY-----\nMIIEow==\n-----END RSA PRIVATE KEY-----", /\[REDACTED_PRIVATE_KEY\]/],
