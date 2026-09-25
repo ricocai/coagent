@@ -15,7 +15,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const BASE = process.env.PGM_BASE_URL ?? "http://127.0.0.1:8787";
+const BASE = process.env.PGM_BASE_URL ?? "http://127.0.0.1:8321";
 const TOKEN = process.env.PGM_TOKEN;
 const PROJECT = process.env.PGM_PROJECT ?? "personal-agent";
 const CLOUD_DEST = process.env.PGM_CLOUD_DEST ?? "cloud:kimi";
@@ -54,7 +54,7 @@ try {
   }
   await client.ready();
 
-  // 1. 幂等导入：同 source_key 两次写入不翻倍
+  // 1. 幂等导入：同 source_key 两次写入不翻倍（真实返回 results:{inserted,skipped}）
   const ev = makeEvent({
     projectId: PROJECT,
     role: "user",
@@ -65,9 +65,10 @@ try {
   });
   const r1 = await client.pushEvents([ev], { idempotencyKey: `int:${uniq}:1` });
   const r2 = await client.pushEvents([ev], { idempotencyKey: `int:${uniq}:2` });
-  const count1 = r1?.results?.[0]?.status ?? JSON.stringify(r1);
-  const count2 = r2?.results?.[0]?.status ?? JSON.stringify(r2);
-  record("同包导入两次不重复", count1 === count2, `status=${count1}/${count2}`);
+  const ok1 = r1?.results?.inserted === 1 && r1?.results?.skipped === 0;
+  const ok2 = r2?.results?.skipped === 1;   // 同 source_key 第二次被服务端幂等跳过
+  record("同包导入两次不重复（幂等跳过）", ok1 && ok2,
+    `r1.inserted=${r1?.results?.inserted} r2.skipped=${r2?.results?.skipped}`);
 
   // 2. 上下文构建：返回快照与版本
   const snap = await client.buildContext({ purpose: `integration-${uniq}` });
@@ -77,10 +78,16 @@ try {
     `snapshot=${snap.snapshot_id}`,
   );
 
-  // 3. 检索到刚写入的事件
-  const hits = await client.search({ query: `[integration ${uniq}]` });
-  const found = JSON.stringify(hits).includes(`int-msg-${uniq}`);
-  record("检索返回新写入来源", found, `hits=${hits?.hits?.length ?? "?"}`);
+  // 3. 检索（§9.1）：返回结构化信封；已写事件经 evidence 读回
+  //    注：真实模型中 search 只检索 memories（active），事件由 evidence 读回——两 Schema 分离。
+  const hits = await client.search({ query: `integration-${uniq}` });
+  const envOk = hits && Array.isArray(hits.results) && typeof hits.mode === "string";
+  record("检索返回结构化信封", envOk, `mode=${hits?.mode} total=${hits?.total}`);
+
+  const evBack = await client.getEvidence(`int-msg-${uniq}`);
+  const found = evBack && evBack.event_id === `int-msg-${uniq}` &&
+    JSON.stringify(evBack.content).includes(`integration ${uniq}`);
+  record("已写事件经 evidence 读回", !!found, `event_id=${evBack?.event_id}`);
 
   // 4. 跨项目权限：伪造无权项目应 403
   let denied = false;
