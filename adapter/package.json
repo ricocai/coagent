@@ -1,0 +1,17 @@
+{
+  "name": "@coagent/pgm-adapter",
+  "version": "0.1.0",
+  "description": "personal-context：DeepSeek Harness ↔ PGM (Global Memory) 薄适配器（MCP stdio + CLI）",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.19"
+  },
+  "bin": {
+    "pgm-adapter": "./bin/pgm-adapter.mjs",
+    "pgm-ctl": "./bin/pgm-ctl.mjs"
+  },
+  "scripts": {
+    "test": "node --test ../evals/unit/"
+  }
+}

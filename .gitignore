@@ -1,0 +1,22 @@
+# 设计文档 §3.2：不进 Git 的运行产物与私人内容
+/context/
+/outputs/
+/feedback/
+/evals/private/
+/runs/
+.DS_Store
+
+# 环境与凭据：只提交 example
+.env
+.env.*
+!.env.example
+
+# runtime 安装目录（node_modules 等）不进本仓库；锁文件由 runtime 自管
+/runtime/
+/node_modules/
+
+# DSH 私有状态（profiles、会话、凭据）
+/state/
+
+# PGM 导出快照可由服务重建
+*.snapshot.json
