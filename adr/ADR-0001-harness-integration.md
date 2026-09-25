@@ -95,4 +95,5 @@ git rev-parse --show-toplevel   # 应输出 workspace 绝对路径
 - 零依赖 JS（非 TS）：换取"免构建、Node 直接跑"，POC 阶段可接受；若复杂度上升再迁移 TS。
 - MCP 协议手工实现最小子集（initialize/tools/list/tools/call）：
   若 Harness 锁定版要求特定 MCP 版本或能力，需在装机时对齐并补测试。
-- 原生会话自动采集未实现，依赖 dsh 插件接口锁定（§8 后续阶段）。
+- 原生会话自动采集：**已实现**（2026-09-26），不再依赖 dsh 插件接口锁定；
+  改为直接读 dsh 会话快照，决策与取舍见 **ADR-0002**。
