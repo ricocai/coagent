@@ -16,7 +16,9 @@ export { PgmClient, PgmApiError, ProtocolError, LocalOnlyLeakError, Outbox, make
 export function configFromEnv(env = process.env) {
   const cfg = {
     baseUrl: env.PGM_BASE_URL ?? "http://127.0.0.1:8787",
-    token: env.PGM_TOKEN,
+    // dsh 拉起 MCP 子进程会擦洗 /TOKEN/i 变量，因此 dsh patch 用 PGM_HARNESS_TOKEN
+    // 显式注入为 PGM_TOKEN；CLI 直跑时允许直接读系统变量 PGM_HARNESS_TOKEN。
+    token: env.PGM_TOKEN ?? env.PGM_HARNESS_TOKEN,
     projectId: env.PGM_PROJECT ?? "personal-agent",
     destination: env.PGM_DESTINATION ?? "local",
     sessionId: env.PGM_SESSION ?? "default",

@@ -14,17 +14,19 @@ workspace/                  ← 本仓库（Git 根 = dsh 技能发现 projectRo
 │   ├── lib/outbox.js       #   事件回流队列（幂等、崩溃安全）
 │   ├── lib/tools.js        #   工具实现（MCP 与 CLI 共用）
 │   ├── lib/session-capture.js #  dsh 会话原生采集（过滤注入/脱敏/幂等）
+│   ├── lib/distill.js      #   事件→候选记忆提炼（本地模型/无工具/两阶段 ledger）
 │   ├── bin/pgm-adapter.mjs #   MCP stdio server（newline-delimited JSON-RPC）
 │   ├── bin/pgm-ctl.mjs     #   CLI：health/ready/search/build/validate/evidence/propose/events:*
-│   └── bin/pgm-session-capture.mjs # CLI：会话原生采集（once/watch/dry-run）
+│   ├── bin/pgm-session-capture.mjs # CLI：会话原生采集（once/watch/dry-run）
+│   └── bin/pgm-distill.mjs #   CLI：记忆提炼（dry-run/retry-pending/status）
 ├── tools/personalctl/      # 业务确定性工具（artifact check / run record / report render）
 ├── sop/                    # context-pack / research-brief / session-review
 ├── .dsh/skills/            # 同名三个 Skill（dsh 发现根）
 ├── evals/
-│   ├── unit/               # 30 个单元测试（mock PGM，node --test）
+│   ├── unit/               # 50 个单元测试（mock PGM/模型，node --test）
 │   ├── integration.mjs     # 真实 PGM 六条必过验收（§3.4，未就绪自动跳过）
 │   └── fixtures/           # 三份合成验收材料
-├── adr/ADR-0001-harness-integration.md
+├── adr/ADR-0001-harness-integration.md   # 及 ADR-0002（会话采集）、ADR-0003（提炼管线）
 ├── config/                 # 配置示例
 ├── scripts/setup.sh        # 目录初始化
 └── context/ outputs/ feedback/ runs/   # 运行产物，不进 Git
@@ -76,6 +78,30 @@ adapter/bin/pgm-session-capture.mjs --watch 60    # 持续增量采集
 
 常用参数：`--dry-run`（预览不推送）、`--watch [秒]`（轮询）、`--include-tools`（慎含密钥）、
 `--include-reasoning`、`--max-chars N`、`--limit N`、`--json`。
+
+## 记忆提炼（事件 → 候选记忆，ADR-0003）
+
+把 outbox 中已 committed 的**用户事件**经本地模型抽取为结构化候选记忆，提交到
+PGM 确认收件箱（`POST /v1/proposals`，附 evidence_ids 可回溯原始事件）。
+
+```bash
+adapter/bin/pgm-distill.mjs --dry-run    # 预览将处理的事件
+adapter/bin/pgm-distill.mjs              # 本地模型抽取 → 提交候选
+adapter/bin/pgm-distill.mjs --status     # ledger 统计
+adapter/bin/pgm-distill.mjs --retry-pending   # 模型曾不可达时恢复 pending 批次
+```
+
+| 约束（§11.7） | 实现 |
+|---|---|
+| 只走本地模型 | 默认 MTPLX `127.0.0.1:8001`；非回环端点默认拒绝，`--allow-remote` 显式越过 |
+| 无执行工具 | 请求体不带 `tools`/`tool_choice`，单测锁定 |
+| 只提候选 | 只调 propose，绝不 decide；审批权在用户 |
+| 只信真人输入 | 仅 `role=user` 事件（助手建议≠用户决定，§12.5） |
+| 宁缺毋滥 | 空抽取合法并 committed；schema 严格校验；敏感度继承来源最高级 + 二次脱敏 |
+| 幂等 | 两阶段 ledger（pending→committed），崩溃后 `--retry-pending` 恢复 |
+
+候选需在 PGM 收件箱确认后生效；模型离线时提炼暂停（批次留在 pending），不影响采集与读取。
+
 
 > 已写入的事件可用 PGM `/v1/deletions:preview` 按 `source_key` 精确核实与删除，
 > key 形如 `dsh-harness|local|<sessionId>|dsh:<sessionId>:<seq>|1`。
