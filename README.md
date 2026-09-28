@@ -106,6 +106,27 @@ adapter/bin/pgm-distill.mjs --retry-pending   # 模型曾不可达时恢复 pend
 > 已写入的事件可用 PGM `/v1/deletions:preview` 按 `source_key` 精确核实与删除，
 > key 形如 `dsh-harness|local|<sessionId>|dsh:<sessionId>:<seq>|1`。
 
+## 任务前置流程接线（dsh 侧，§4.4）
+
+把 `memory.build_context` 变成每个任务的前置步骤，靠 dsh 的两个原生机制：
+
+| 机制 | 接线方式 | 生效范围 |
+|---|---|---|
+| `dsh-agent-instructions` | `$DSH_HOME/AGENTS.md` → 软链到 `config/AGENTS.md`（版本化） | 每个会话首请求注入持久基线消息，**强制**前置协议：build_context → 三分呈现 → 副作用前重建快照 → 收尾 propose + events_flush |
+| `dsh-skill-filesystem` | `$DSH_HOME/skills` → 软链到 `.dsh/skills/`（rank 400 用户根，与 cwd 无关） | context-pack / research-brief / session-review 从任意启动目录可见，`watch: true` 免重启 |
+
+工具完整命名（`dsh-mcp-client` 命名规则 `mcp__<serverName>__<rawName>`）：
+`mcp__pgm__memory.build_context` / `.search` / `.get_evidence` / `.propose` / `.events_flush` 等。
+
+已实测（2026-09-28）：stdio 探针以完整工具名调用 `memory.build_context` → 真实 PGM 返回
+`snapshot_id=ctx_…`、`status=valid`、`destination=mtplx`、15 分钟 TTL、含 memory_refs。
+
+**冒烟步骤（用户在 Web UI 执行）**：
+1. 重启 `dsh web`（让 AGENTS.md 基线与新软链生效）。
+2. 发一个需要背景的任务，观察模型是否先调 `mcp__pgm__memory.build_context` 再作答。
+3. 答复末尾应有「运行记录」小节含 snapshot_id；结论带 `[M:…]`/`[E:…]` 引用。
+4. 让它复述一条已确认记忆并给出证据引用 → `get_evidence` 可回溯即闭环。
+
 ## 验收对照（设计 §3.4 / §12.5）
 
 | 验收 | 位置 |
